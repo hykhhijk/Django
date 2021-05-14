@@ -1,22 +1,26 @@
 from django.shortcuts import render, get_object_or_404, redirect
-
-
-# Create your views here.
 from django.http import HttpResponse
 from .models import Question
 from django.utils import timezone
 from .forms import QuestionForm, AnswerForm
+from django.core.paginator import Paginator
+from django.contrib.auth.decorators import login_required
 
 
 def index(request):
     """
     pybo 목록 출력
     """
+    page = request.GET.get('page', '1')
     question_list = Question.objects.order_by('-create_date')   #-가 붙어있으므로 작성일시의 역순임
-    context = {'question_list': question_list}
+    paginator = Paginator(question_list, 10)
+    page_obj = paginator.get_page(page)
+    context = {'question_list': page_obj}                       #paginator로 묶은 question_list를 넘겨주기때문에 template에서 page_obj의 속성을 사용가능
 
     return render(request, 'pybo/question_list.html', context)      #context를 html파일에 적용하여 코드로 변환시킴
-                                                                    #pybo/question_list -> 템플릿 = 장고의 태그가 사용 가능한 html파일
+        #pybo/question_list -> 템플릿 = 장고의 태그가 사용 가능한 html파일
+
+                                                                    
 def detail(request, question_id):
     """
     pybo 내용 출력
@@ -25,6 +29,7 @@ def detail(request, question_id):
     context = {'question': question}
     return render(request, 'pybo/question_detail.html', context)
 
+@login_required(login_url='common:login')
 def answer_create(request, question_id):
     """
     pybo 답변 등록
@@ -34,6 +39,7 @@ def answer_create(request, question_id):
         form = AnswerForm(request.POST)
         if form.is_valid():
             answer = form.save(commit=False)
+            answer.author = request.user
             answer.create_date = timezone.now()
             answer.question = question
             answer.save()
@@ -43,6 +49,7 @@ def answer_create(request, question_id):
     context = {'question': question, 'form': form}
     return render(request, 'pybo/question_detail.html', context)
 
+@login_required(login_url='common:login')
 def question_create(request):
     """
     pybo 질문 등록
@@ -54,6 +61,7 @@ def question_create(request):
         form = QuestionForm(request.POST)
         if form.is_valid():
             question = form.save(commit=False)
+            question.author = request.user
             question.create_date = timezone.now()
             question.save()
             return redirect('pybo:index')
